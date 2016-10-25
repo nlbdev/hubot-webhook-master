@@ -5,34 +5,30 @@
 #   None
 #
 # Configuration:
-#   HUBOT_SLAVE_URL_PIPELINE - the webhook URL to the Pipeline 2 server
+#   HUBOT_SLAVE_URL_* - the webhook URLs to the other HuBot instances
 #
 # Notes:
 #   This script sets up a webhook for messages coming back from the other HuBot instances,
-#   and also defines a reusable function for forwarding messages out to the instances.
+#   and automatically sets up commands for communicating with the instances.
 #
 #   The webhook URLs for the other HuBot instances should be defined as environment
-#   variables prefixed with `HUBOT_SLAVE_URL_` and ending with the name of the bot in uppercase.
+#   variables prefixed with `HUBOT_SLAVE_URL_` and ending with the name of the bot.
 #   The webhooks for the other HuBot instances are on the form `http://<ip>:8080/hubot/message`.
 #   The other HuBot instances should use the webhook-adapter, and need to have the environment
 #   variable HUBOT_MASTER_URL set to the webhook URL for this main HuBot instance.
 #   The webhook URL for the main instance is also on the form `http://<ip>:8080/hubot/message`.
 #
-#   Remember to add documentation for the other HuBot instances in the "Commands" part of this
-#   header so that they appear in the help listing. To get the help listing for the individual
+#   To get the help listing for the individual
 #   HuBot instances, use `hubot [instance-name] help`; this will forward the message
 #   `[instance-name] help` to the HuBot instance with the name `instance-name`, and the resulting
 #   help listing will be returned.
 #
 # Author:
 #   josteinaj
-#
-# Commands:
-#   hubot pipeline - communicate with the pipeline server
 
 {Message, TextMessage, EnterMessage, LeaveMessage, TopicMessage, CatchAllMessage} = require 'hubot'
 
-forwardToSlave = (robot, res) ->
+forwardToSlave = (robot, res, url) ->
   res.message.text = res.message.text.replace /^[^\s]+\s+/, ""
   messageType = switch
     when res.message instanceof TextMessage then 'TextMessage'
@@ -41,7 +37,7 @@ forwardToSlave = (robot, res) ->
     when res.message instanceof TopicMessage then 'TopicMessage'
     when res.message instanceof Message then 'Message'
     else 'CatchAllMessage'
-  robot.http("http://localhost:8081/hubot/message")
+  robot.http(url)
       .header('Content-Type', 'application/json')
       .post(JSON.stringify { "type": messageType , "message": res.message }) (err, res, body) ->
         if err
@@ -85,5 +81,11 @@ module.exports = (robot) ->
   
   # ---------- slave connections configured below here ----------
   
-  robot.respond /pipeline .*/i, (res) ->
-    forwardToSlave robot, res, process.env.HUBOT_SLAVE_URL_PIPELINE
+  for varName, varValue of process.env
+    if varName.match /^HUBOT_SLAVE_URL_.+/
+      name = varName.replace /^HUBOT_SLAVE_URL_.+/ ""
+      name = name.toLowerCase()
+      robot.logger.info "Will forward commands starting with '"+name+"' to '"+varValue+"'"
+      robot.commands.push "hubot "+name+" - Communicate with HuBot instance running on the "+name+"-server."
+      robot.respond new RegExp("^"+name+" .*", "i"), (res) ->
+        forwardToSlave robot, res, varValue
