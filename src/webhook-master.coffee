@@ -12,7 +12,7 @@
 #   and automatically sets up commands for communicating with the instances.
 #
 #   The webhook URLs for the other HuBot instances should be defined as environment
-#   variables prefixed with `HUBOT_SLAVE_URL_` and ending with the name of the bot.
+#   variables prefixed with `HUBOT_SLAVE_URL_` and ending with the name of the bot, in uppercase.
 #   The webhooks for the other HuBot instances are on the form `http://<ip>:8080/hubot/message`.
 #   The other HuBot instances should use the webhook-adapter, and need to have the environment
 #   variable HUBOT_MASTER_URL set to the webhook URL for this main HuBot instance.
@@ -28,8 +28,9 @@
 
 {Message, TextMessage, EnterMessage, LeaveMessage, TopicMessage, CatchAllMessage} = require 'hubot'
 
-forwardToSlave = (robot, res, url) ->
+forwardToSlave = (robot, res) ->
   res.message.text = res.message.text.replace /^[^\s]+\s+/, ""
+  name = res.message.text.replace /\s.*$/, ""
   messageType = switch
     when res.message instanceof TextMessage then 'TextMessage'
     when res.message instanceof EnterMessage then 'EnterMessage'
@@ -37,7 +38,7 @@ forwardToSlave = (robot, res, url) ->
     when res.message instanceof TopicMessage then 'TopicMessage'
     when res.message instanceof Message then 'Message'
     else 'CatchAllMessage'
-  robot.http(url)
+  robot.http(process['env']['HUBOT_SLAVE_URL_'+name.toUpperCase()])
       .header('Content-Type', 'application/json')
       .post(JSON.stringify { "type": messageType , "message": res.message }) (err, res, body) ->
         if err
@@ -83,9 +84,9 @@ module.exports = (robot) ->
   
   for varName, varValue of process.env
     if varName.match /^HUBOT_SLAVE_URL_.+/
-      name = varName.replace /^HUBOT_SLAVE_URL_.+/ ""
+      name = varName.replace /^HUBOT_SLAVE_URL_/, ""
       name = name.toLowerCase()
       robot.logger.info "Will forward commands starting with '"+name+"' to '"+varValue+"'"
       robot.commands.push "hubot "+name+" - Communicate with HuBot instance running on the "+name+"-server."
-      robot.respond new RegExp("^"+name+" .*", "i"), (res) ->
-        forwardToSlave robot, res, varValue
+      robot.respond new RegExp(name+" .*", "i"), (res) ->
+        forwardToSlave robot, res
