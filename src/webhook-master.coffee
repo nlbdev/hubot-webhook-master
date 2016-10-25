@@ -40,7 +40,7 @@ forwardToSlave = (robot, res) ->
     else 'CatchAllMessage'
   robot.http(process['env']['HUBOT_SLAVE_URL_'+name.toUpperCase()])
       .header('Content-Type', 'application/json')
-      .post(JSON.stringify { "type": messageType , "message": res.message }) (err, res, body) ->
+      .post(JSON.stringify { "messageType": messageType , "message": res.message }) (err, res, body) ->
         if err
           robot.logger.error "Encountered an error while sending message to slave: "+err
           return
@@ -63,21 +63,56 @@ module.exports = (robot) ->
       return
     
     type = req.body.type
+    messageType = req.body.messageType
     botname = req.body.name || "missing bot name"
-    envelope = req.body.envelope
     strings = req.body.strings
     
-    if !type || !envelope || !strings
+    if !type || !req.body.envelope || !strings
       res.json {status: 'failed', error: "bad data"}
       robot.logger.error "Error: bad data"
       return
     
+    envelope = {}
+    for propertyName, propertyValue in req.body.envelope
+      # instantiate envelope.user
+      if propertyName == "user"
+        user = @robot.brain.userForId propertyValue.id, name: propertyValue.name, room: propertyValue.room
+        for userPropertyName, userPropertyValue in propertyValue
+          user[userPropertyName] = userPropertyValue
+        envelope['user'] = user
+      
+      # instantiate envelope.message
+      else if propertyName == "message"
+        message = switch
+          when messageType == "Message" then new Message(user, message.done)
+          when messageType == "TextMessage" then new TextMessage(user, message.text, message.id)
+          when messageType == "EnterMessage" then new EnterMessage(user, message.text, message.id)
+          when messageType == "LeaveMessage" then new LeaveMessage(user, message.text, message.id)
+          when messageType == "TopicMessage" then new TopicMessage(user, message.text, message.id)
+          else new CatchAllMessage(message?.message or message)
+        for messagePropertyName, messagePropertyValue in req.body.envelope.message
+          
+          # instantiate envelope.message.user
+          if messagePropertyName == "user"
+            user = @robot.brain.userForId messagePropertyValue.id, name: messagePropertyValue.name, room: messagePropertyValue.room
+            for userPropertyName, userPropertyValue in messagePropertyValue
+              user[userPropertyName] = userPropertyValue
+            message['user'] = user
+          
+          else
+            message[messagePropertyName] = messagePropertyValue
+        
+        envelope['message'] = message
+      
+      else
+        envelope[propertyName] = propertyValue
+    
     res.json {status: 'ok'}
     
     switch type
-      when "emote" then robot.emote envelope, strings
-      when "reply" then robot.reply envelope, strings
-      else robot.send envelope, strings
+      when "emote" then robot.emote envelope, strings...
+      when "reply" then robot.reply envelope, strings...
+      else robot.send envelope, strings...
   
   
   # ---------- slave connections configured below here ----------
