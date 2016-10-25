@@ -1,5 +1,5 @@
 {
-  "name": "hubot-hubot-webhook-master",
+  "name": "hubot-webhook-master",
   "description": "Webhook master script for delegating messages to other HuBot instances.",
   "version": "0.0.0",
   "author": "Jostein Austvik Jacobsen <josteinaj@gmail.com>",
@@ -9,11 +9,11 @@
 
   "repository": {
     "type": "git",
-    "url": "git://github.com/hubot-scripts/hubot-hubot-webhook-master.git"
+    "url": "git://github.com/hubot-scripts/hubot-webhook-master.git"
   },
 
   "bugs": {
-    "url": "https://github.com/hubot-scripts/hubot-hubot-webhook-master/issues"
+    "url": "https://github.com/hubot-scripts/hubot-webhook-master/issues"
   },
 
   "dependencies": {
