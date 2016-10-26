@@ -73,16 +73,18 @@ module.exports = (robot) ->
       return
     
     envelope = {}
-    for propertyName, propertyValue in req.body.envelope
+    for propertyName of req.body.envelope
+      propertyValue = req.body.envelope[propertyName]
       # instantiate envelope.user
       if propertyName == "user"
-        user = @robot.brain.userForId propertyValue.id, name: propertyValue.name, room: propertyValue.room
-        for userPropertyName, userPropertyValue in propertyValue
-          user[userPropertyName] = userPropertyValue
+        user = robot.brain.userForId propertyValue.id, name: propertyValue.name, room: propertyValue.room
+        for userPropertyName of propertyValue
+          user[userPropertyName] = propertyValue[userPropertyName]
         envelope['user'] = user
       
       # instantiate envelope.message
       else if propertyName == "message"
+        message = propertyValue
         message = switch
           when messageType == "Message" then new Message(user, message.done)
           when messageType == "TextMessage" then new TextMessage(user, message.text, message.id)
@@ -90,13 +92,14 @@ module.exports = (robot) ->
           when messageType == "LeaveMessage" then new LeaveMessage(user, message.text, message.id)
           when messageType == "TopicMessage" then new TopicMessage(user, message.text, message.id)
           else new CatchAllMessage(message?.message or message)
-        for messagePropertyName, messagePropertyValue in req.body.envelope.message
+        for messagePropertyName of propertyValue
+          messagePropertyValue = propertyValue[messagePropertyName]
           
           # instantiate envelope.message.user
           if messagePropertyName == "user"
-            user = @robot.brain.userForId messagePropertyValue.id, name: messagePropertyValue.name, room: messagePropertyValue.room
-            for userPropertyName, userPropertyValue in messagePropertyValue
-              user[userPropertyName] = userPropertyValue
+            user = robot.brain.userForId messagePropertyValue.id, name: messagePropertyValue.name, room: messagePropertyValue.room
+            for userPropertyName of messagePropertyValue
+              user[userPropertyName] = messagePropertyValue[userPropertyName]
             message['user'] = user
           
           else
